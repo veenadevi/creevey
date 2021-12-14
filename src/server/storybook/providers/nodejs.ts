@@ -2,10 +2,10 @@
 import path from 'path';
 import { isWorker, isMaster } from 'cluster';
 import chokidar, { FSWatcher } from 'chokidar';
-import type { StoryInput, WebpackMessage, SetStoriesData, Config } from '../../types';
-import { noop } from '../../types';
-import { getCreeveyCache } from '../utils';
-import { subscribeOn } from '../messages';
+import type { StoryInput, WebpackMessage, SetStoriesData, Config } from '../../../types';
+import { noop } from '../../../types';
+import { getCreeveyCache } from '../../utils';
+import { subscribeOn } from '../../messages';
 import type { Parameters } from '@storybook/api';
 import type { default as Channel } from '@storybook/channels';
 import {
@@ -14,12 +14,12 @@ import {
   importStorybookCoreCommon,
   importStorybookCoreEvents,
   isStorybookVersionLessThan,
-} from './helpers';
-import { logger } from '../logger';
-import { flatStories } from '../stories';
+} from '../helpers';
+import { logger } from '../../logger';
+import { flatStories } from '../../stories';
 
-async function initStorybookEnvironment(): Promise<typeof import('./entry')> {
-  // @ts-ignore
+async function initStorybookEnvironment(): Promise<typeof import('../entry')> {
+  // @ts-expect-error There is no @types/global-jsdom package
   (await import('global-jsdom')).default(undefined, { url: 'http://localhost' });
 
   // NOTE Cutoff `jsdom` part from userAgent, because storybook check enviroment and create events channel if runs in browser
@@ -39,7 +39,7 @@ async function initStorybookEnvironment(): Promise<typeof import('./entry')> {
   // NOTE: disable logger for 5.x storybook
   (logger.debug as unknown) = noop;
 
-  return import('./entry');
+  return import('../entry');
 }
 
 function watchStories(channel: Channel, watcher: FSWatcher, initialFiles: Set<string>): (data: SetStoriesData) => void {
@@ -98,8 +98,8 @@ async function loadStoriesDirectly(
   { watcher, debug }: { watcher: FSWatcher | null; debug: boolean },
 ): Promise<void> {
   const { toRequireContext } = await importStorybookCoreCommon();
-  const { addParameters, configure } = await import('./entry');
-  const requireContext = await (await import('../loaders/babel/register')).default(config, debug);
+  const { addParameters, configure } = await import('../entry');
+  const requireContext = await (await import('../../loaders/babel/register')).default(config, debug);
   const preview = (() => {
     try {
       return require.resolve(`${config.storybookDir}/preview`);
@@ -169,6 +169,7 @@ async function loadStoriesDirectly(
   void startStorybook();
 }
 
+// TODO Do we need to support multiple storybooks here?
 export async function loadStories(
   config: Config,
   { watch, debug }: { watch: boolean; debug: boolean },

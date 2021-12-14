@@ -1,11 +1,13 @@
 import cluster from 'cluster';
 import {
   WorkerMessage,
+  StoriesMessage,
   TestMessage,
   WebpackMessage,
   DockerMessage,
   ProcessMessage,
   WorkerHandler,
+  StoriesHandler,
   TestHandler,
   WebpackHandler,
   DockerHandler,
@@ -23,6 +25,10 @@ function emitMessage<T>(message: T): boolean {
 
 export function emitWorkerMessage(message: WorkerMessage): boolean {
   return emitMessage({ scope: 'worker', ...message });
+}
+
+export function emitStoriesMessage(message: StoriesMessage): boolean {
+  return emitMessage({ scope: 'stories', ...message });
 }
 
 export function emitTestMessage(message: TestMessage): boolean {
@@ -43,6 +49,7 @@ export function emitShutdownMessage(): boolean {
 
 interface Handlers {
   worker: Set<WorkerHandler>;
+  stories: Set<StoriesHandler>;
   test: Set<TestHandler>;
   webpack: Set<WebpackHandler>;
   docker: Set<DockerHandler>;
@@ -51,6 +58,7 @@ interface Handlers {
 
 const handlers: Handlers = Object.assign(Object.create(null) as unknown, {
   worker: new Set<WorkerHandler>(),
+  stories: new Set<StoriesHandler>(),
   test: new Set<TestHandler>(),
   webpack: new Set<WebpackHandler>(),
   docker: new Set<DockerHandler>(),
@@ -61,6 +69,8 @@ const handler = (message: ProcessMessage): void => {
   switch (message.scope) {
     case 'worker':
       return handlers.worker.forEach((h) => h(message));
+    case 'stories':
+      return handlers.stories.forEach((h) => h(message));
     case 'test':
       return handlers.test.forEach((h) => h(message));
     case 'webpack':
@@ -73,6 +83,9 @@ const handler = (message: ProcessMessage): void => {
 };
 process.on('message', handler);
 
+export function sendStoriesMessage(target: NodeJS.Process | cluster.Worker, message: StoriesMessage): void {
+  target.send?.({ scope: 'stories', ...message });
+}
 export function sendTestMessage(target: NodeJS.Process | cluster.Worker, message: TestMessage): void {
   target.send?.({ scope: 'test', ...message });
 }
@@ -84,24 +97,30 @@ export function sendShutdownMessage(target: NodeJS.Process | cluster.Worker): vo
 }
 
 export function subscribeOn(scope: 'worker', handler: WorkerHandler): () => void;
+export function subscribeOn(scope: 'stories', handler: StoriesHandler): () => void;
 export function subscribeOn(scope: 'test', handler: TestHandler): () => void;
 export function subscribeOn(scope: 'webpack', handler: WebpackHandler): () => void;
 export function subscribeOn(scope: 'docker', handler: DockerHandler): () => void;
 export function subscribeOn(scope: 'shutdown', handler: ShutdownHandler): () => void;
 export function subscribeOn(
-  scope: 'worker' | 'test' | 'webpack' | 'docker' | 'shutdown',
-  handler: WorkerHandler | TestHandler | WebpackHandler | DockerHandler | ShutdownHandler,
+  scope: 'worker' | 'stories' | 'test' | 'webpack' | 'docker' | 'shutdown',
+  handler: WorkerHandler | StoriesHandler | TestHandler | WebpackHandler | DockerHandler | ShutdownHandler,
 ): () => void;
 
 export function subscribeOn(
-  scope: 'worker' | 'test' | 'webpack' | 'docker' | 'shutdown',
-  handler: WorkerHandler | TestHandler | WebpackHandler | DockerHandler | ShutdownHandler,
+  scope: 'worker' | 'stories' | 'test' | 'webpack' | 'docker' | 'shutdown',
+  handler: WorkerHandler | StoriesHandler | TestHandler | WebpackHandler | DockerHandler | ShutdownHandler,
 ): () => void {
   switch (scope) {
     case 'worker': {
       const workerHandler = handler as WorkerHandler;
       handlers.worker.add(workerHandler);
       return () => handlers.worker.delete(workerHandler);
+    }
+    case 'stories': {
+      const storiesHandler = handler as StoriesHandler;
+      handlers.stories.add(storiesHandler);
+      return () => handlers.stories.delete(storiesHandler);
     }
     case 'test': {
       const testHandler = handler as TestHandler;

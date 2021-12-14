@@ -5,10 +5,10 @@ import chai from 'chai';
 import chalk from 'chalk';
 import Mocha, { Context, MochaOptions } from 'mocha';
 import { Key, until } from 'selenium-webdriver';
-import { Config, Images, Options, BrowserConfig, TestMessage, isImageError } from '../../types';
+import { Config, Images, Options, TestMessage, isImageError } from '../../types';
 import { subscribeOn, emitTestMessage, emitWorkerMessage } from '../messages';
 import chaiImage from './chai-image';
-import { getBrowser, switchStory } from '../selenium';
+import { closeBrowser, getBrowser, switchStory } from '../selenium';
 import { CreeveyReporter, TeamcityReporter } from './reporter';
 import { addTestsFromStories } from './helpers';
 import { logger } from '../logger';
@@ -141,14 +141,20 @@ export default async function worker(config: Config, options: Options & { browse
 
   chai.use(chaiImage(getExpected, config.diffOptions));
 
+  if ((await getBrowser(config, options.browser)) == null) return;
+
   await addTestsFromStories(mocha.suite, config, {
     browser: options.browser,
     watch: options.ui,
     debug: options.debug,
   });
 
-  const browserConfig = config.browsers[options.browser] as BrowserConfig;
-  const browser = await getBrowser(config, browserConfig);
+  try {
+    await (await getBrowser(config, options.browser))?.getCurrentUrl();
+  } catch (_) {
+    await closeBrowser();
+  }
+  const browser = await getBrowser(config, options.browser);
   const sessionId = (await browser?.getSession())?.getId();
 
   if (browser == null) return;

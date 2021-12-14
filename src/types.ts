@@ -215,16 +215,11 @@ export interface Config {
    * module.exports = {
    *   storiesProvider: provider
    * }
+   * ```
    */
   storiesProvider: (
     config: Config,
-    {
-      watch,
-      debug,
-    }: {
-      watch: boolean;
-      debug: boolean;
-    },
+    options: { watch: boolean; debug: boolean },
     storiesListener: (stories: Map<string, StoryInput[]>) => void,
   ) => Promise<SetStoriesData>;
   /**
@@ -283,6 +278,11 @@ export interface Options {
 
 export type WorkerMessage = { type: 'ready'; payload?: never } | { type: 'error'; payload: { error: string } };
 
+export type StoriesMessage =
+  | { type: 'get'; payload?: never }
+  | { type: 'set'; payload: SetStoriesData }
+  | { type: 'update'; payload: Map<string, StoryInput[]> };
+
 export type TestMessage =
   | { type: 'start'; payload: { id: string; path: string[]; retries: number } }
   | { type: 'end'; payload: TestResult };
@@ -299,12 +299,14 @@ export type ShutdownMessage = unknown;
 
 export type ProcessMessage =
   | (WorkerMessage & { scope: 'worker' })
+  | (StoriesMessage & { scope: 'stories' })
   | (TestMessage & { scope: 'test' })
   | (WebpackMessage & { scope: 'webpack' })
   | (DockerMessage & { scope: 'docker' })
   | (ShutdownMessage & { scope: 'shutdown' });
 
 export type WorkerHandler = (message: WorkerMessage) => void;
+export type StoriesHandler = (message: StoriesMessage) => void;
 export type TestHandler = (message: TestMessage) => void;
 export type WebpackHandler = (message: WebpackMessage) => void;
 export type DockerHandler = (message: DockerMessage) => void;
